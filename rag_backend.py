@@ -9,14 +9,24 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+from pathlib import Path
+from langchain_community.document_loaders import PyMuPDFLoader, DirectoryLoader
+
+BASE_DIR = Path(__file__).resolve().parent
+PDF_DIR = BASE_DIR / "pdf"
+
+print("Looking for PDFs in:", PDF_DIR)
+
+if not PDF_DIR.exists():
+    raise FileNotFoundError(f"PDF directory not found at {PDF_DIR}")
 
 loader = DirectoryLoader(
-    "../GenerativeAI/pdf",
+    str(PDF_DIR),
     glob="**/*.pdf",
     loader_cls=PyMuPDFLoader,
     show_progress=True
 )
+
 docs = loader.load()
 
 
