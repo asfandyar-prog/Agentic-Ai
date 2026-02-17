@@ -1,0 +1,13 @@
+python is a high level interpreted programming language
+    key Feature of python:
+    1. Easy to learn and use
+    2. Large standard library
+    3. Platform independent
+    4. Open source
+    5. Large community
+    6. Dynamic typing
+    7. Automatic memory management
+    8. Object oriented
+    9. Interpreted
+    10. High level
+    

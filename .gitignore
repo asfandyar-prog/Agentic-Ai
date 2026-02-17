@@ -1,0 +1,21 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/
+
+# Environment variables (VERY IMPORTANT)
+.env
+
+# Vector databases
+vector_store/
+multi_vector_store/
+
+# Build files
+build/
+dist/
+*.egg-info
+
+# Jupyter
+.ipynb_checkpoints/
