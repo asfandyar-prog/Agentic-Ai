@@ -117,7 +117,7 @@ The long-term direction is integrating agentic control with research automation 
 ## 👤 Author
 
 **Asfand Yar**  
-BSc Computer Science (Minor in Physics)  
+BSc Computer Science
 Focused on agentic AI, self-supervised learning, vision transformers, and robustness under distribution shift.
 
 ---
@@ -125,3 +125,4 @@ Focused on agentic AI, self-supervised learning, vision transformers, and robust
 ## 📜 License
 
 MIT License
+
