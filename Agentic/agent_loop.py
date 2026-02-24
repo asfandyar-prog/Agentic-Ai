@@ -8,6 +8,8 @@ load_dotenv()
 
 class Agent:
     def __init__(self):
+        self.previous_action=[]
+        self.searched=False
         self.llm=ChatGroq(
         model_name="llama-3.3-70b-versatile",
         groq_api_key=os.getenv("GROQ_API_KEY")
@@ -18,39 +20,7 @@ class Agent:
 
 
 
-    # Define the tool
-    def search_wikipedia(self,query:str):
-        """Search on Wikipedia and return the summary of the first result."""
-        try:
-            response = requests.get("https://en.wikipedia.org/w/api.php",  headers={
-            "User-Agent": "AgenticAIProject/1.0 (yarasfand886@gmail.com)"
-        },
-            params={
-                "action":"query",
-                "prop":"extracts",
-                "exintro":True,
-                "explaintext":True,
-                "titles":query,
-                "format":"json"
-                
-                
-            })
-            if response.status_code != 200:
-                return f"HTTP Error {response.status_code}"
-            data = response.json()
-
-
-            pages = data["query"]["pages"]
-            page = next(iter(pages.values()))
-
-            if "extract" in page and page["extract"]:
-                return page["extract"]
-            else:
-                return "No result found."
-        except Exception as e:
-            return f"Error: {str(e)}"
-
-
+    
     # Define the llm
     
 
@@ -79,9 +49,25 @@ class Agent:
 
         return thought, action, action_input
 
+
+    def execute_action(self,action,action_input):
+        """Execute the action and return the observation."""
+        allowed_actions=set(self.tools.keys())|{"finish"}
+        if action not in allowed_actions:
+            return f"Error: Invalid action {action}. Allowed actions are {allowed_actions}"
+        if action == "finish":
+            if not self.searched:
+                observation = "You must call search_wikipedia atleast once before finishing"
+            return "FINISH"
+        
+        observation = self.tools[action](action_input)
+        if "Error" not in observation and observation != "No result found.":
+            self.searched = True
+        return observation
+
     def run_agent(self,question: str, max_steps=5):
         history = f"Question: {question}\n"
-        searched=False
+        
 
         prompt_template = """
     You are an autonomous agent.
@@ -101,6 +87,21 @@ class Agent:
             print("\nLLM Response:\n", response)
 
             thought, action, action_input = self.parse_response(response)
+            if not thought or not action or not action_input:
+                observation = "Format error. You must respond with Thought,Action,Action Input."
+                self.history +=f"""
+                Thought: {thought}
+                Action: {action}
+                Action Input: {action_input}
+                Observation: {observation}
+                """
+                continue
+
+            current_pair=(action,action_input)
+            if current_pair in self.previous_action:
+                print("\nError: Infinite loop detected. Repeating previous action.")
+                return "Error: Infinite loop detected."
+            self.previous_action.append(current_pair)
 
             # if action == "finish":
             #     if not searched:
@@ -110,9 +111,6 @@ class Agent:
             #     else:
             #         print("\nFinal Answer:", action_input)
             #         return action_input
-
-            
-
             # if action == "search_wikipedia":
             #     observation = search_wikipedia(action_input)
             #     if observation and observation !="No result found.":
@@ -123,23 +121,37 @@ class Agent:
 
             #Tools registry
         
-            allowed_actions = set(self.tools.keys())|{"finish"}
+            # allowed_actions = set(self.tools.keys())|{"finish"}
 
-            if action not in allowed_actions:
-                observation = f"Invalid action. Allowed actions are {allowed_actions}."
-            elif action == "finish":
-                if not searched:
-                    observation = "You must call search_wikipedia at least once before finish."
+            # if action not in allowed_actions:
+            #     observation = f"Invalid action. Allowed actions are {allowed_actions}."
+            # elif action == "finish":
+            #     if not searched:
+            #         observation = "You must call search_wikipedia at least once before finish."
 
-                else:
-                    print("\nFinal Answer:", action_input)
-                    return action_input
+            #     else:
+            #         print("\nFinal Answer:", action_input)
+            #         return action_input
             
-            else:
-                observation = self.tools[action](action_input)
-                if "Error" not in observation and observation != "No result found.":
-                    searched = True
+            # else:
+            #     observation = self.tools[action](action_input)
+            #     if "Error" not in observation and observation != "No result found.":
+            #         searched = True
 
+
+            observation = self.execute_action(action, action_input)
+
+            if observation == "FINISH":
+                print("\nFinal Answer:", action_input)
+                return action_input
+            
+            print(f"Step {step+1}")
+            print(f"Thought: {thought}")
+            print(f"Action: {action}")
+            print(f"Action Input: {action_input}")
+            print(f"Observation: {observation}")
+
+            observation = observation[:1000]
 
             history += f"""
     Thought: {thought}
@@ -150,8 +162,3 @@ class Agent:
 
         print("Max steps reached.")
 
-
-
-if __name__ == "__main__":
-    agent = Agent()
-    agent.run_agent("Who directed Inception and what other movie did he direct?")

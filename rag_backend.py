@@ -1,9 +1,4 @@
-
-
-
-# backend.py (your code, just bug-fixed)
-
-from langchain_community.document_loaders import PyMuPDFLoader, TextLoader, DirectoryLoader
+from langchain_community.document_loaders import PyMuPDFLoader, DirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import os
 from pathlib import Path
@@ -19,6 +14,7 @@ print("Looking for PDFs in:", PDF_DIR)
 
 if not PDF_DIR.exists():
     raise FileNotFoundError(f"PDF directory not found at {PDF_DIR}")
+
 
 loader = DirectoryLoader(
     str(PDF_DIR),
