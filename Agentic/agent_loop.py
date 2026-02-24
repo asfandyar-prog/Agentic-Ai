@@ -8,6 +8,7 @@ load_dotenv()
 
 class Agent:
     def __init__(self):
+        self.memory=[]
         self.previous_action=[]
         self.searched=False
         self.llm=ChatGroq(
@@ -15,8 +16,7 @@ class Agent:
         groq_api_key=os.getenv("GROQ_API_KEY")
     )
         self.tools = {
-    "search_wikipedia": self.search_wikipedia
-}
+    "search_wikipedia": self.search_wikipedia}
 
 
 
@@ -65,100 +65,85 @@ class Agent:
             self.searched = True
         return observation
 
-    def run_agent(self,question: str, max_steps=5):
-        history = f"Question: {question}\n"
-        
+    def build_prompt(self,question: str):
+        base_prompt = """
+        You are an autonomous agent.
 
-        prompt_template = """
-    You are an autonomous agent.
+        You must respond in this format:
 
-    You must respond in this format:
+        Thought: your reasoning
+        Action: search_wikipedia | finish
+        Action Input: input for the action
+        Rule: You must call search_wikipedia at least once before finish.
 
-    Thought: your reasoning
-    Action: search_wikipedia | finish
-    Action Input: input for the action
-    Rule: You must call search_wikipedia at least once before finish.
+        """  
 
-    """
+        memory_block = ""
+
+        for step in self.memory:
+            memory_block += f"""
+            Thought: {step['thought']}
+            Action: {step['action']}
+            Action Input: {step['input']}
+            Observation: {step['observation']}
+            """
+
+        return base_prompt + f"\nQuestion: {question}\n" + memory_block
+
+
+    def run_agent(self, question: str, max_steps=5):
+
+        # Reset state
+        self.memory = []
+        self.searched = False
+        self.previous_action = []
 
         for step in range(max_steps):
-            prompt = prompt_template + history
+
+            prompt = self.build_prompt(question)
+
             response = self.call_llm(prompt)
             print("\nLLM Response:\n", response)
 
             thought, action, action_input = self.parse_response(response)
+
             if not thought or not action or not action_input:
-                observation = "Format error. You must respond with Thought,Action,Action Input."
-                self.history +=f"""
-                Thought: {thought}
-                Action: {action}
-                Action Input: {action_input}
-                Observation: {observation}
-                """
+                observation = "Format error. Use Thought, Action, Action Input."
+                self.memory.append({
+                    "thought": thought,
+                    "action": action,
+                    "input": action_input,
+                    "observation": observation
+                })
                 continue
 
-            current_pair=(action,action_input)
+            current_pair = (action, action_input)
+
             if current_pair in self.previous_action:
-                print("\nError: Infinite loop detected. Repeating previous action.")
-                return "Error: Infinite loop detected."
+                print("Infinite loop detected.")
+                return "Terminated due to repetition."
+
             self.previous_action.append(current_pair)
-
-            # if action == "finish":
-            #     if not searched:
-            #         observation = "You must call search_wikipedia at least once before finish."
-
-            #         print("\nObservation", observation)
-            #     else:
-            #         print("\nFinal Answer:", action_input)
-            #         return action_input
-            # if action == "search_wikipedia":
-            #     observation = search_wikipedia(action_input)
-            #     if observation and observation !="No result found.":
-            #         searched = True
-            #     print("Observation:\n", observation[:500])
-            # else:
-            #     observation = "Invalid action."
-
-            #Tools registry
-        
-            # allowed_actions = set(self.tools.keys())|{"finish"}
-
-            # if action not in allowed_actions:
-            #     observation = f"Invalid action. Allowed actions are {allowed_actions}."
-            # elif action == "finish":
-            #     if not searched:
-            #         observation = "You must call search_wikipedia at least once before finish."
-
-            #     else:
-            #         print("\nFinal Answer:", action_input)
-            #         return action_input
-            
-            # else:
-            #     observation = self.tools[action](action_input)
-            #     if "Error" not in observation and observation != "No result found.":
-            #         searched = True
-
 
             observation = self.execute_action(action, action_input)
 
             if observation == "FINISH":
                 print("\nFinal Answer:", action_input)
                 return action_input
-            
-            print(f"Step {step+1}")
-            print(f"Thought: {thought}")
-            print(f"Action: {action}")
-            print(f"Action Input: {action_input}")
-            print(f"Observation: {observation}")
 
             observation = observation[:1000]
 
-            history += f"""
-    Thought: {thought}
-    Action: {action}
-    Action Input: {action_input}
-    Observation: {observation}
-    """
+            print(f"\nStep {step+1}")
+            print(f"Thought: {thought}")
+            print(f"Action: {action}")
+            print(f"Action Input: {action_input}")
+            print(f"Observation length: {len(observation)}")
+
+            self.memory.append({
+                "thought": thought,
+                "action": action,
+                "input": action_input,
+                "observation": observation
+            })
 
         print("Max steps reached.")
-
